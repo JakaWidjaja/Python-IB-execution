@@ -7,9 +7,9 @@ class garch : public volatility
 {
 public:
 	//constructor
-	garch(const double* const mean, const double* const alpha_0, 
-		  const double* const alpha_1, const double* const beta,
-		  const double* const lag_return, const double* const lag_vol);
+	garch(const double& mean, const double& alpha_0, 
+		  const double& alpha_1, const double& beta,
+		  const double& lag_return, const double& lag_vol);
 	
 	//destructor
 	~garch();
@@ -17,19 +17,19 @@ public:
 	//Output to calculate the volatility. 
 	//This is the garch model.
 	//Garch(1,1).
-	virtual double sigma_t(void);
+	virtual double get_volatility(void);
 
 	//Formula for log likelihood.
-	double log_likelihood(const double* const current_return);
+	double log_likelihood(const double& current_return);
 
 
 private:
-	const double* mean;
-	const double* alpha_0;
-	const double* alpha_1;
-	const double* beta;
-	const double* lag_return;
-	const double* lag_vol;
+	const double& mean;
+	const double& alpha_0;
+	const double& alpha_1;
+	const double& beta;
+	const double& lag_return;
+	const double& lag_vol;
 };
 
 #endif

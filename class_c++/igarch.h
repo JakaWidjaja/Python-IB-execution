@@ -7,27 +7,27 @@ class igarch: public volatility
 {
 public:
 	//constructor
-	igarch(const double* mean, const double* alpha_0,
-		   const double* beta, const double* lag_return, 
-		   const double* lag_vol);
+	igarch(const double& mean, const double& alpha_0,
+		   const double& beta, const double& lag_return, 
+		   const double& lag_vol);
 
 	//destructor
 	~igarch();
 
 	//This is the IGARCH model. 
 	//IGARCH(1,1)
-	virtual double sigma_t();
+	virtual double get_volatility();
 
 	//Formula for log likelihood.
-	double log_likelihood(const double* current_return);
+	double log_likelihood(const double& current_return);
 
 
 private:
-	const double* mean;
-	const double* alpha_0;
-	const double* beta;
-	const double* lag_return;
-	const double* lag_vol;
+	const double& mean;
+	const double& alpha_0;
+	const double& beta;
+	const double& lag_return;
+	const double& lag_vol;
 };
 
 

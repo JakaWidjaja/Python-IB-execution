@@ -7,10 +7,10 @@ class garchm : public volatility
 {
 public:
 	//Constructor
-	garchm(const double* mean, const double* c,
-		   const double* alpha_0, const double* alpha_1,
-		   const double* beta, const double* lag_return,
-		   const double* lag_vol);
+	garchm(const double& mean, const double& c,
+		   const double& alpha_0, const double& alpha_1,
+		   const double& beta, const double& lag_return,
+		   const double& lag_vol);
 
 	//Destructor
 	~garchm();
@@ -25,19 +25,19 @@ public:
 	Parameter c is the risk premium parameter. 
 	A positive c indicates that the return is positively related to volatility. 
 	*/
-	virtual double sigma_t(int type = 1);
+	virtual double get_volatility(const int& type = 1);
 
 	//Formula for log likelihood.
-	double log_likelihood(const double* current_return);
+	double log_likelihood(const double& current_return);
 
 private:
-	const double* mean;
-	const double* c;
-	const double* alpha_0;
-	const double* alpha_1;
-	const double* beta;
-	const double* lag_return;
-	const double* lag_vol;
+	const double& mean;
+	const double& c;
+	const double& alpha_0;
+	const double& alpha_1;
+	const double& beta;
+	const double& lag_return;
+	const double& lag_vol;
 };
 
 	
