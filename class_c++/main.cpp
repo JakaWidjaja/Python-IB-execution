@@ -2,14 +2,17 @@
 #include <complex>
 #include <memory>
 #include <math.h>
-#include "market_implied.h"
-#include "correlation.h"
-#include "volatility.h"
-#include "market_implied.h"
-#include "heston.h"
-#include "market_correlation.h"
-//#include "numerical_integration.h"
-//#include "simpsons.h"
+#include <stdlib.h>
+#include "/media/lun/Data2/Trading_Algo/class_c++/Volatility/market_implied.h"
+#include "/media/lun/Data2/Trading_Algo/class_c++/Correlation/correlation.h"
+#include "/media/lun/Data2/Trading_Algo/class_c++/Volatility/volatility.h"
+#include "/media/lun/Data2/Trading_Algo/class_c++/Stochastic_Model/heston.h"
+#include "/media/lun/Data2/Trading_Algo/class_c++/Correlation/market_correlation.h"
+#include "/media/lun/Data2/Trading_Algo/class_c++/Random_Number/random_number.h"
+#include "/media/lun/Data2/Trading_Algo/class_c++/Random_Number/random_number_generator.h"
+#include "/media/lun/Data2/Trading_Algo/class_c++/Random_Number/pseudo_uniform_random.h"
+#include "/media/lun/Data2/Trading_Algo/class_c++/Random_Number/exponential_random.h"
+
 /*
 #include "garch.h"
 #include "igarch.h"
@@ -43,21 +46,13 @@ double ccc(double* c1)
 
 int main()
 {
-	/*
-	const double* const stock, const double* const strike,
-		   const volatility* const vol, const correlation* const correl,
-		   const double* const kappa, const double* const theta,
-		   const double* const lambda, const double* const init_var,
-		   const double* const expiry, const double* const rate,
-		   const double* const dividend
-	*/
 
-	double a = 0.88;
+	double a = 8.88;
 	double c_stock(100.8);
 	double c_strike(100.8);
 	//market_implied* c_vol;
 	//correlation* c_correl;
-	double c_kappa(0.5);
+	double c_kappa(0.588);
 	double c_theta(0.5);
 	double c_lambda(0.085);
 	double c_init_var(0.3);
@@ -100,16 +95,26 @@ int main()
 					 move(cc), kappa, theta, lambda, init_var,
 					expiry, rate, dividend);
 	
-	cout << "heston P1: " << hest_call->p(type1) << endl;
-	cout << "heston P2: " << hest_call->p(type2) << endl;
-	cout << "heston call: " << hest_call->call_price() << endl;
-	cout << "heston put: " << hest_call->put_price() << endl;
+	//cout << "heston P1: " << hest_call->p(type1) << endl;
+	//cout << "heston P2: " << hest_call->p(type2) << endl;
+	//cout << "heston call: " << hest_call->call_price() << endl;
+	//cout << "heston put: " << hest_call->put_price() << endl;
 	//cout << "integrand: " << hest_call -> integrand(type, phi) << endl;
 	
-	double upper_bound(100);
-	double lower_bound(0);
-	int interval(100);
 
+
+	const unsigned long int seed(88);
+	//double beta(8);
+
+	pseudo_uniform_random uniform;
+	exponential_random expon(a);
+
+	random_number rando(uniform, expon);
+
+	for(int i = 0; i <10; i++)
+	{
+		cout << rando.random(seed) << endl;
+	}
 	//simpsons inter(hest_call->integrand_1(phi), upper_bound, lower_bound, interval);
 
 	//cout<< "integral: " << inter.integrate() << endl;
