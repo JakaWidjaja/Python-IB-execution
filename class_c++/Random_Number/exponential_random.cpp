@@ -2,21 +2,26 @@
 #include <math.h>
 
 //Constructor
-exponential_random::exponential_random(const double& c_beta): beta(c_beta)
-{}
+exponential_random::exponential_random(uniform_random_number& c_uniform_number, const double& c_beta): 
+										beta(c_beta), 
+										uniform_number(c_uniform_number)
+{
+}
 
 //Destructor
 exponential_random::~exponential_random()
 {}
 
-double exponential_random::generate_number(const double& uniform_random_number)
+double exponential_random::generate_number()
 {
 	double u;
 
-	if (uniform_random_number == 0.0)
+	u = uniform_number.generate_number();
+
+	while (u == 0.0)
 	{
-		return 0.0;
+		u = uniform_number.generate_number();
 	}
 
-	return -log(uniform_random_number) / beta;
+	return -log(u) / beta;
 }

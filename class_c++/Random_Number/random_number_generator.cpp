@@ -8,5 +8,5 @@ random_number_generator::random_number_generator()
 random_number_generator::~random_number_generator()
 {}
 
-double random_number_generator::generate_number(const double& uniform_number)
+double random_number_generator::generate_number()
 {}

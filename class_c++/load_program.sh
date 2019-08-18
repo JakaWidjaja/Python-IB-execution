@@ -13,11 +13,14 @@ g++  -std=c++14  -o main main.cpp \
 "$volatility_path""market_implied.cpp" \
 "$correlation_path""correlation.cpp" \
 "$correlation_path""market_correlation.cpp" \
-"$random_number_path""random_number.cpp" \
 "$random_number_path""random_number_generator.cpp" \
 "$random_number_path""pseudo_uniform_random.cpp" \
 "$random_number_path""uniform_random_number.cpp" \
-"$random_number_path""exponential_random.cpp"
+"$random_number_path""exponential_random.cpp" \
+"$random_number_path""logistic_random.cpp" \
+"$random_number_path""box_muller.cpp" \
+"$random_number_path""cauchy_random.cpp" \
+"$random_number_path""gamma_random.cpp"
 
 ./main
 

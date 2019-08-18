@@ -1,14 +1,16 @@
 #include "pseudo_uniform_random.h"
 
 //Constructor
-pseudo_uniform_random::pseudo_uniform_random():v(4101842887655102017LL)
+pseudo_uniform_random::pseudo_uniform_random(const unsigned long int& c_seed):
+											v(4101842887655102017LL), 
+											seed(c_seed)
 {}
 
 //Destructor
 pseudo_uniform_random::~pseudo_uniform_random()
 {}
 
-double pseudo_uniform_random::generate_number(const unsigned long int& seed)
+double pseudo_uniform_random::generate_number()
 {
 
 	v ^= seed;

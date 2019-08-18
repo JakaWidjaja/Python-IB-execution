@@ -8,9 +8,9 @@ public:
 	random_number_generator();
 
 	//Destructor
-	~random_number_generator();
+	virtual ~random_number_generator();
 
-	virtual double generate_number(const double& uniform_number) = 0;
+	virtual double generate_number() = 0;
 };
 
 #endif

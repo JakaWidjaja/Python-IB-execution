@@ -8,9 +8,9 @@ public:
 	uniform_random_number();
 
 	//Destructor
-	~uniform_random_number();
+	virtual ~uniform_random_number();
 
-	virtual double generate_number(const unsigned long int& seed);
+	virtual double generate_number() = 0;
 };
 
 #endif

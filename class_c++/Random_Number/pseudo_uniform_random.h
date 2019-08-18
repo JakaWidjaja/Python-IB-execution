@@ -12,16 +12,17 @@ class pseudo_uniform_random: public uniform_random_number
 {
 public:
 	//Constructor
-	pseudo_uniform_random();
+	pseudo_uniform_random(const unsigned long int& seed);
 
 	//Destructor
-	~pseudo_uniform_random();
+	virtual ~pseudo_uniform_random();
 
 	//Generate uniform random number between 0 and 1
-	virtual double generate_number(const unsigned long int& seed);
+	virtual double generate_number();
 
 private:
 	unsigned long long int v;
+	const unsigned long int& seed;
 
 };
 
