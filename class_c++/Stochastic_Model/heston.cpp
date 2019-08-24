@@ -3,8 +3,10 @@
 #include <complex>
 #include <math.h>
 #include <memory>
+#include <algorithm>
 #include "/media/lun/Data2/Trading_Algo/class_c++/Volatility/volatility.h"
 #include "/media/lun/Data2/Trading_Algo/class_c++/Correlation/correlation.h"
+#include "/media/lun/Data2/Trading_Algo/class_c++/Random_Number/box_muller.h"
 
 using std::string;
 using std::complex;
@@ -12,6 +14,12 @@ using std::real;
 using std::unique_ptr;
 using std::make_unique; 
 using std::move;
+using std::max;
+
+#include "/media/lun/Data2/Trading_Algo/class_c++/Random_Number/pseudo_uniform_random.h"
+#include <iostream>
+using std::cout;
+using std::endl;
 
 //Constructor
 heston::heston(const double& c_stock, const double& c_strike,
@@ -186,7 +194,99 @@ double heston::put_price(void)
 }
 
 //Calculate option CALL price using monte carlo method. 
-double heston::monte_carlo_call(const int& number_simulation)
+double heston::monte_carlo_call(const int& number_simulation, uniform_random_number& uniform_number)
 {
+	int i;
+	int k;
 
+	double variance;
+	double spot_price;
+	double variance1;
+	double spot_price1;
+
+	double sum(0.0);
+	double mean;
+
+	double random_number;
+	double random_number1;
+
+	double dz1;
+	double dz2;
+	double dz11;
+	double dz22;
+
+	double time_step = 1000;
+	double dt;
+	double discount;
+	
+
+
+	//unsigned long int seed;
+	//pseudo_uniform_random normal_random_number(seed);
+
+	//Calculate time steps.
+	dt = expiry / double(time_step);
+
+	//Calculate the discount factor.
+	discount = exp(-(rate-dividend) * expiry);
+
+	for(i = 0; i < number_simulation; i++)
+	{
+		box_muller normal_random_number(uniform_number, 0.0, 1.0);
+
+		//Reset the parameters after each time step simulation
+		variance = init_var;
+		spot_price = stock;
+		variance1 = init_var;
+		spot_price1 = stock;
+
+		for(k = 0; k < time_step; k++)
+		{
+			//generate random number.
+			random_number = normal_random_number.generate_number();
+			random_number1 = normal_random_number.generate_number();
+
+			//correlated random number
+			dz1 = sqrt(dt) * random_number;
+			dz2 = sqrt(dt) * (correl->get_correlation() * random_number + 
+							sqrt(1.0 - correl->get_correlation() * correl->get_correlation()) * 
+							random_number1);
+
+			variance += kappa * (theta - variance) * dt + vol->get_volatility() * sqrt(variance) * dz2;
+
+			//If variance is negative then turn into positive. 
+			if (variance < 0.0)
+			{
+				variance *= -1;
+			}
+
+			spot_price += spot_price * (rate * dt + sqrt(variance) * dz1);
+
+			//Antithetic sampling;
+			dz11 = dz1 * -1;
+			dz22 = dz2 * -1;
+
+			
+
+			variance1 += kappa * (theta - variance1) * dt + vol->get_volatility() * 
+							sqrt(variance1) * dz22;
+
+			//If variance is negative then turn into positive. 
+			if (variance1 < 0.0)
+			{
+				variance1 *= -1;
+			}
+
+			spot_price1 += spot_price1 * (rate * dt + sqrt(variance1) * dz11);
+
+			//cout << "var: " << variance1 << endl;
+		}
+
+		sum += 0.5 * (max(spot_price - strike, 0.0)) + 0.5 * (max(spot_price1 - strike, 0.0));
+
+	}
+
+	mean = (sum / static_cast<double>(number_simulation)) * discount;
+
+	return mean;
 }

@@ -4,6 +4,7 @@
 #include "stochastic_model.h"
 #include "/media/lun/Data2/Trading_Algo/class_c++/Volatility/volatility.h"
 #include "/media/lun/Data2/Trading_Algo/class_c++/Correlation/correlation.h"
+#include "/media/lun/Data2/Trading_Algo/class_c++/Random_Number/uniform_random_number.h"
 #include <memory>
 
 using std::unique_ptr;
@@ -42,7 +43,7 @@ public:
 	double put_price(void);
 
 	//Calculation option Call price using Monte-Carlo method. 
-	double monte_carlo_call(const int& number_simulation);
+	double monte_carlo_call(const int& number_simulation, uniform_random_number& uniform_number);
 
 private:
 	const double& stock;
