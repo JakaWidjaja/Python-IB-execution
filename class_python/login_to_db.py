@@ -4,7 +4,7 @@ class login_to_db():
 	def login_to_quant_trading(self):
 
 		host = 'localhost'
-		user = 'jakawidjaja'
+		user = 'root'
 		password = 'prawira8'
 		database_name = 'quant_trading' 
 
