@@ -38,7 +38,7 @@ class MarketData:
         self.last               = last
         self.contractDictionary = contractDictionary
         
-        columnNames = ['ticker', 'bid', 'ask', 'last']
+        columnNames = ['ticker', 'bid', 'ask', 'mid', 'last']
         
         output = pd.DataFrame(columns = columnNames)
         for i, ticker in enumerate(contractDictionary):
@@ -57,7 +57,9 @@ class MarketData:
             except:
                 lastPrice = 0
             
-            temp = pd.DataFrame([[ticker, bidPrice, askPrice, lastPrice]], columns = columnNames)
+            midPrice = abs(askPrice - bidPrice)
+            
+            temp = pd.DataFrame([[ticker, bidPrice, askPrice, midPrice, lastPrice]], columns = columnNames)
             
             output = pd.concat([output, temp], ignore_index = True)
             
