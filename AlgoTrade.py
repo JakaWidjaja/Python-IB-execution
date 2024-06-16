@@ -9,6 +9,7 @@ from UDF.Orders     import Orders
 from UDF.Positions  import Positions
 
 import pandas as pd
+import datetime as dt
 import threading
 import time
 #======================================================================================
@@ -18,10 +19,13 @@ tws = twsWrapper.twsWrapper()
 
 host = '127.0.0.1'
 port = 7497
-clientId = 4
+clientId = 2
 
 #Login to TWS
 tws.Login(host, port, clientId, 1)
+
+marketOpenTime = dt.time(23, 30, 0)
+marketCloseTime = dt.time(6,0,0)
 #**************************************************************************************
 #======================================================================================
 
@@ -40,11 +44,13 @@ contractList = createContract.contractObjectList(path + strategyName + '.csv')
 #======================================================================================
 #**************************************************************************************
 #Get historical Data
-#histData = HistoricalData.HistoricalData()
-#histData.GetHistoricalData(tws, 1, contractList['GOOGL'], '1 D', '10 secs')
-#df = pd.DataFrame(tws.data[0])
-
 '''
+histData = HistoricalData.HistoricalData()
+histData.GetHistoricalData(tws, 1, contractList['WBD'], '1 D', '1 secs')
+df = pd.DataFrame(tws.histData[0])
+'''
+
+
 #Get market Data
 mktData = MarketData.MarketData()
     
@@ -53,7 +59,7 @@ streamThread.start()
 time.sleep(0.8)
 
 dfMarketData = mktData.SortMarketData(tws.mktDataBid, tws.mktDataAsk, tws.mktDataLast, contractList)
-'''
+
 #**************************************************************************************
 #======================================================================================
 
@@ -75,5 +81,33 @@ dfMarketData = mktData.SortMarketData(tws.mktDataBid, tws.mktDataAsk, tws.mktDat
 #Position
 pos = Positions.Positions(tws)
 print(pos.GetPortPosition(1))
+#**************************************************************************************
+#======================================================================================
+a = dt.time(3,45)
+#======================================================================================
+#**************************************************************************************
+#Trading
+#While loop to wait until the market open
+while True:
+    currentTime = dt.datetime.now().time()
+    if currentTime >= marketOpenTime or currentTime < marketCloseTime:
+        break
+    else:
+        time.sleep(8)
+
+#Market is Open. Start Trading. 
+while True:
+    #Time now. Use to break the while loop.
+    currentTime = dt.datetime.now().time()
+    
+    
+    
+    
+    
+    
+    if marketOpenTime <= currentTime or currentTime < marketCloseTime:
+        pass
+    else:
+        break
 #**************************************************************************************
 #======================================================================================
