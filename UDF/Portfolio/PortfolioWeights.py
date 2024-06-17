@@ -39,7 +39,7 @@ class PortfolioWeights(object):
             #Calculate M
             m = np.matmul(np.matmul(covarLag, covarFull), covarLag.transpose())
             
-            return np.matmul(np.matmul(w.transpose(), m), w) #* 1e8
+            return np.matmul(np.matmul(w.transpose(), m), w) * 1e8
         
         #Initiate the minimisation function
         init = self.weights
@@ -58,7 +58,7 @@ class PortfolioWeights(object):
         #minimise the function and calculate the weights
         res = minimize(func, init, method='SLSQP', bounds= bnds, constraints= const)  
         
-        return dict(zip(stockNames, res.x))#res.x
+        return res.x#dict(zip(stockNames, res.x))
     
     
         
