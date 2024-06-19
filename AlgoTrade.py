@@ -7,6 +7,7 @@ from UDF.Contract   import MakeContract
 from UDF.Data       import HistoricalData, MarketData
 from UDF.Orders     import Orders
 from UDF.Positions  import Positions
+from UDF.Utilities  import SortMarketData
 
 import pandas as pd
 import datetime as dt
@@ -26,6 +27,9 @@ tws.Login(host, port, clientId, 1)
 
 marketOpenTime = dt.time(23, 30, 0)
 marketCloseTime = dt.time(6,0,0)
+
+#Market Data Type. 1 for live data, 4 for delayed data. 
+marketDataType = 4
 #**************************************************************************************
 #======================================================================================
 
@@ -37,7 +41,7 @@ strategyName = 'MeanRevertingPortfolio'
 
 #Create Contract
 createContract = MakeContract.MakeContract()
-contractList = createContract.contractObjectList(path + strategyName + '.csv')
+contractDict = createContract.contractObjectList(path + strategyName + '.csv')
 #**************************************************************************************
 #======================================================================================
 
@@ -46,7 +50,7 @@ contractList = createContract.contractObjectList(path + strategyName + '.csv')
 #Get historical Data
 '''
 histData = HistoricalData.HistoricalData()
-histData.GetHistoricalData(tws, 1, contractList['WBD'], '1 D', '1 secs')
+histData.GetHistoricalData(tws, 1, contractDict['WBD'], '1 D', '1 secs')
 df = pd.DataFrame(tws.histData[0])
 '''
 
@@ -54,11 +58,11 @@ df = pd.DataFrame(tws.histData[0])
 #Get market Data
 mktData = MarketData.MarketData()
     
-streamThread = threading.Thread(target = mktData.GetMarketData, args=(tws, contractList, 4, 0.2))
+streamThread = threading.Thread(target = mktData.GetMarketData, args=(tws, contractDict, 4, 0.2))
 streamThread.start()
 time.sleep(0.8)
 
-dfMarketData = mktData.SortMarketData(tws.mktDataBid, tws.mktDataAsk, tws.mktDataLast, contractList)
+dfMarketData = mktData.SortMarketData(tws.mktDataBid, tws.mktDataAsk, tws.mktDataLast, contractDict)
 
 #**************************************************************************************
 #======================================================================================
@@ -83,7 +87,25 @@ pos = Positions.Positions(tws)
 print(pos.GetPortPosition(1))
 #**************************************************************************************
 #======================================================================================
-a = dt.time(3,45)
+
+#======================================================================================
+#**************************************************************************************
+#Initiate objects
+#Get market Data
+mktData = MarketData.MarketData()
+
+#Sort Market Data
+sortData = SortMarketData.SortMarketData()
+
+#Initiate the bid, ask and mid dataframe. For sorting
+stockNames = list(contractDict.keys())
+bidPrices = pd.DataFrame(columns = stockNames)
+askPrices = pd.DataFrame(columns = stockNames)
+midPrices = pd.DataFrame(columns = stockNames)
+
+#**************************************************************************************
+#======================================================================================
+
 #======================================================================================
 #**************************************************************************************
 #Trading
@@ -100,11 +122,21 @@ while True:
     #Time now. Use to break the while loop.
     currentTime = dt.datetime.now().time()
     
+    #Get market data
+    streamThread = threading.Thread(target = mktData.GetMarketData, args=(tws, 
+                                                                          contractDict, 
+                                                                          marketDataType, 
+                                                                          0.2))
+    streamThread.start()
+    time.sleep(0.8)
+
+    dfMarketData = mktData.SortMarketData(tws.mktDataBid, tws.mktDataAsk, tws.mktDataLast, contractDict)
+    
+    #Separate Market Data and create time seris
+    bidPrices, askPrices, midPrices = sortData.SortBidAskMid(dfMarketData, bidPrices, askPrices, midPrices)
     
     
-    
-    
-    
+    #Break the loop if market has closed. 
     if marketOpenTime <= currentTime or currentTime < marketCloseTime:
         pass
     else:
