@@ -21,10 +21,18 @@ class MeanRevertingPortfolio:
         #Calculate the different stock combinations
         stockCombination = list(topStocks, self.numStockToUse)
         
+        return stockCombination
+        
+        
+    
+    def EntryExit(self, portfolioList, data):
+        self.portfolioList = portfolioList
+        self.data          = data
+        
         #Calculate the weights and portfolio time series
         weights = {}
         w = PortfolioWeights.PortfolioWeights()
-        for c in stockCombination:
+        for c in self.portfolioList:
             stockList = data.loc[:, c]
             weights[c] = w.BoxTiao(stockList, 
                                    1,
@@ -34,7 +42,6 @@ class MeanRevertingPortfolio:
             
             sumProduct = stockList * weights[c]
             portfolioTimeSeries = sumProduct.sum(axis = 1)
-        
         
         
         
