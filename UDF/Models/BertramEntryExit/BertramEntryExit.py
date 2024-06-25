@@ -1,11 +1,75 @@
 import numpy as np
 from scipy.special import factorial, gamma, digamma
-
-from UDF.Utilities import ReScaleTimeSeries
+from scipy.optimize import minimize
 
 class BertramEntryExit:
     def __init__(self):
         pass
+    #Calibration function.
+    def CalibrateModel(self, costPrice, guessEntry, guessExit, mu, theta, sigma):
+        self.costPrice  = costPrice
+        self.guessEntry = guessEntry
+        self.guessExit  = guessExit
+        self.mu         = mu
+        self.theta      = theta
+        self.sigma      = sigma
+        
+        eta = sigma
+        x0 = [self.guessEntry, self.guessExit]
+        
+        cons = [{'type': 'ineq', 'fun': self.Constraint1, 
+                 'args': (self.costPrice, eta, self.mu, self.theta, self.sigma)}]
+        
+        bnd = [(-10, 10), (-10, 10)]
+        
+        res = minimize(self.Objective, x0, method = 'SLSQP', 
+                       args = (self.costPrice, self.mu, self.theta, self.sigma), 
+                       constraints = cons, 
+                       bounds = bnd)
+        
+        exitPrice  = np.sqrt((self.sigma**2) / (2.0 * self.theta)) * res.x[1] + self.mu
+        entryPrice = np.sqrt((self.sigma**2) / (2.0 * self.theta)) * res.x[0] + self.mu
+        
+        return [entryPrice, exitPrice]
+
+        
+    #Calibration objective to maximise ZM
+    def Objective(self, x, costPrice, mu, theta, sigma):
+        self.x         = x
+        self.costPrice = costPrice
+        self.mu        = mu
+        self.theta     = theta
+        self.sigma     = sigma
+        
+        entryPrice = self.x[0]
+        exitPrice  = self.x[1]
+        
+        const = np.sqrt(2 * self.theta / (self.sigma**2))
+        
+        entryPriceAdjust = const * (entryPrice - self.mu)
+        exitPriceAdjust  = const * (exitPrice  - self.mu)
+        
+        return -self.ZM(entryPriceAdjust, exitPriceAdjust, self.costPrice, self.mu, self.theta, self.sigma) * 1e5
+    
+    #Calibration constrains
+    #Variance limit. Variance less than eta. 
+    def Constraint1(self, x, costPrice, eta, mu, theta, sigma):
+        self.x          = x
+        self.constPrice = costPrice
+        self.eta        = eta
+        self.mu         = mu
+        self.theta      = theta
+        self.sigma      = sigma
+        
+        entryPrice = self.x[0]
+        exitPrice  = self.x[1]
+        
+        const = np.sqrt(2.0 * self.theta / (self.sigma**2)) 
+        entryPriceAdjust = const * (entryPrice - self.mu)
+        exitPriceAdjust  = const * (exitPrice - self.mu)
+        
+        return self.eta - self.ZV(entryPriceAdjust, exitPriceAdjust, self.costPrice, self.sigma)
+    
     
     def w1(self, z, tolerance = 1e-8):
         self.z         = z
@@ -17,15 +81,15 @@ class BertramEntryExit:
         k = 1
         
         while True:
-            term1 = (sqrt2z ** k) / factorial(k) * gamma(k/2.0)
-            term2 = (-sqrt2z ** k) / factorial(k) * gamma(k/2.0)
-            
-            total1 += term1
-            total2 += term2
+            term1 = (sqrt2z ** k) / factorial(k + 1) * gamma(k/2.0)
+            term2 = (-sqrt2z ** k) / factorial(k + 1) * gamma(k/2.0)
             
             #Break the while loop when no longer adding material gain
             if abs(total1 - total2) <= tolerance:
                 break
+            
+            total1 += term1
+            total2 += term2
             
             k += 1
             
@@ -33,8 +97,8 @@ class BertramEntryExit:
         total2 = (total2 * 0.5) ** 2
         
         return total1 - total2
-    
-    def w2(self, z, tolerance):
+
+    def w2(self, z, tolerance = 1e-8):
         self.z         = z
         self.tolerance = tolerance
         
@@ -112,7 +176,7 @@ class BertramEntryExit:
         self.theta      = theta
         self.sigma      = sigma
         
-        if self.ET(self.entryPrice, self.exitPrice, self.costPrice, self.mu, self.theta, self.sigma) == 0:
+        if self.ET(self.entryPrice, self.exitPrice) == 0:
             ZMAdjust = np.sqrt(2 / (self.theta * self.sigma**2)) * \
                                 (self.exitPrice - self.entryPrice - self.costPrice)
         else:
@@ -139,41 +203,4 @@ class BertramEntryExit:
                                                     
         return ZVAdjust
     
-    #Calibration function. maximize ZM
-    def objective(self, x, costPrice, mu, theta, sigma):
-        self.x         = x
-        self.costPrice = costPrice
-        self.mu        = mu
-        self.theta     = theta
-        self.sigma     = sigma
-        
-        entryPrice = self.x[0]
-        exitPrice  = self.x[1]
-        
-        const = np.sqrt(2 * self.theta / (self.sigma**2))
-        
-        entryPriceAdjust = const * (entryPrice - self.mu)
-        exitPriceAdjust  = const * (exitPrice  - self.mu)
-        
-        return -self.ZM(entryPriceAdjust, exitPriceAdjust, self.costPrice, self.mu, self.theta, self.sigma) * 1e5
     
-        
-        
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
