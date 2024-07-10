@@ -1,7 +1,8 @@
 from itertools import combinations
 
 from UDF.Portfolio import PortfolioSelection, PortfolioWeights
-
+from UDF.Utilities import ReScaleTimeSeries
+from UDF.Models.OrnsteinUhlenbeck import OrnsteinUhlenbeck 
 
 class MeanRevertingPortfolio:
     def __init__(self):
@@ -29,6 +30,10 @@ class MeanRevertingPortfolio:
         self.portfolioList = portfolioList
         self.data          = data
         
+        #Initialised variable
+        reScale = ReScaleTimeSeries.ReScaleTimeSeries()
+        oh      = OrnsteinUhlenbeck.OrnsteinUhlenbeck()
+        
         #Calculate the weights and portfolio time series
         weights = {}
         w = PortfolioWeights.PortfolioWeights()
@@ -43,9 +48,10 @@ class MeanRevertingPortfolio:
             sumProduct = stockList * weights[c]
             portfolioTimeSeries = sumProduct.sum(axis = 1)
         
+            #Normalised the time series
+            normTimeSeries = reScale.Normalised(portfolioTimeSeries)
         
-        
-
+            mu, theta, sigma = oh.Moment(normTimeSeries)
             
 
 
