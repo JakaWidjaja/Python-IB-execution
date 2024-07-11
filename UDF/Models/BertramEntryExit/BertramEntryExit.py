@@ -17,15 +17,22 @@ class BertramEntryExit:
         eta = sigma
         x0 = [self.guessEntry, self.guessExit]
         
-        cons = [{'type': 'ineq', 'fun': self.Constraint1, 
-                 'args': (self.costPrice, eta, self.mu, self.theta, self.sigma)}]
+        cons = [{'type' : 'ineq', 'fun' : self.Constraint1, 'args' : (self.costPrice, eta, self.mu, self.theta, self.sigma)}, 
+                {'type' : 'ineq', 'fun' : self.Constraint2, 'args' : (self.costPrice, self.mu, self.theta, self.sigma)},
+                {'type' : 'ineq', 'fun' : self.Constraint3, 'args' : (self.mu, self.theta, self.sigma)}]
         
-        bnd = [(-10, 10), (-10, 10)]
+        bnd = [(0, 1), (0, 1)]
+        
+        #Define a callback function to adjust x0 if guessEntry == guessExit
+        def callBack(xk):
+            if np.isclose(xk[0], xk[1]):
+                xk[1] += 1e-4 #adjust exit price if entry and exit are equal
         
         res = minimize(self.Objective, x0, method = 'SLSQP', 
-                       args = (self.costPrice, self.mu, self.theta, self.sigma), 
+                       args        = (self.costPrice, self.mu, self.theta, self.sigma), 
                        constraints = cons, 
-                       bounds = bnd)
+                       bounds      = bnd, 
+                       callback    = callBack)
         
         exitPrice  = np.sqrt((self.sigma**2) / (2.0 * self.theta)) * res.x[1] + self.mu
         entryPrice = np.sqrt((self.sigma**2) / (2.0 * self.theta)) * res.x[0] + self.mu
@@ -70,6 +77,38 @@ class BertramEntryExit:
         
         return self.eta - self.ZV(entryPriceAdjust, exitPriceAdjust, self.costPrice, self.sigma)
     
+    def Constraint2(self, x, costPrice, mu, theta, sigma):
+        self.x          = x
+        self.costPrice = costPrice
+        self.mu         = mu
+        self.theta      = theta
+        self.sigma      = sigma
+    
+        entryPrice = self.x[0]
+        exitPrice  = self.x[1]
+        
+        const = np.sqrt(2.0 * self.theta / (self.sigma**2)) 
+        entryPriceAdjust = const * (entryPrice - self.mu)
+        exitPriceAdjust  = const * (exitPrice - self.mu)
+        costPriceAdjust  = const * self.costPrice
+        
+        #print(entryPriceAdjust, exitPriceAdjust, costPriceAdjust)
+        # Ensure that entryPriceAdjust - exitPriceAdjust - costPriceAdjust >= 0
+        return entryPriceAdjust - exitPriceAdjust - costPriceAdjust 
+
+    def Constraint3(self, x, mu, theta, sigma):
+        self.x     = x
+        self.mu    = mu
+        self.theta = theta
+        self.sigma = sigma
+        
+        exitPrice = self.x[1]
+        
+        const = np.sqrt(2.0 * self.theta / (self.sigma**2)) 
+        exitPriceAdjust  = const * (exitPrice - self.mu)
+        
+        return exitPriceAdjust #exitPrice > 0
+
     
     def w1(self, z, tolerance = 1e-8):
         self.z         = z
@@ -101,9 +140,6 @@ class BertramEntryExit:
     def w2(self, z, tolerance = 1e-8):
         self.z         = z
         self.tolerance = tolerance
-        
-        # Set numpy to raise errors on overflow
-        old_settings = np.seterr(over='raise')
 
         total = 0.0
         k = 1
@@ -113,11 +149,8 @@ class BertramEntryExit:
         while True:
             const = 2 * k - 1
             constHalf = const / 2.0
-            
-            try:
-                term = ((sqrt2z ** const) / factorial(const)) * gamma(constHalf) * digamma(constHalf)
-            except FloatingPointError:
-                break
+
+            term = ((sqrt2z ** const) / factorial(const)) * gamma(constHalf) * digamma(constHalf)
             
             #Break the while loop when no longer adding material gain
             if abs(term) <= tolerance:
@@ -125,9 +158,6 @@ class BertramEntryExit:
             
             total += term
             k += 1
-            
-        # Restore numpy settings    
-        np.seterr(**old_settings) 
         
         return total
         
@@ -146,25 +176,17 @@ class BertramEntryExit:
         total = 0.0
         k = 1
         
-        # Set numpy to raise errors on overflow
-        old_settings = np.seterr(over='raise')
-        
         while True:
             const = k * 2.0 - 1.0
-            try:
-                term = ((sqrt2 * self.entryPrice) ** const - (sqrt2 * self.exitPrice) ** const) / \
+
+            term = ((sqrt2 * self.entryPrice) ** const - (sqrt2 * self.exitPrice) ** const) / \
                         factorial(const + 1) * gamma(const / 2.0)
-            except FloatingPointError:
-                break
             
             if abs(term) < self.tolerance:
                 break
             
             total += term
             k += 1
-            
-        # Restore numpy settings    
-        np.seterr(**old_settings) 
         
         return total
         
@@ -177,10 +199,9 @@ class BertramEntryExit:
         self.sigma      = sigma
         
         if self.ET(self.entryPrice, self.exitPrice) == 0:
-            ZMAdjust = np.sqrt(2 / (self.theta * self.sigma**2)) * \
-                                (self.exitPrice - self.entryPrice - self.costPrice)
-        else:
-            ZMAdjust = np.sqrt(2 / (self.theta * self.sigma**2)) * \
+            print(self.entryPrice, self.exitPrice, self.ET(self.entryPrice, self.exitPrice))
+        
+        ZMAdjust = np.sqrt(2 / (self.theta * self.sigma**2)) * \
                 (self.exitPrice - self.entryPrice - self.costPrice) / self.ET(self.entryPrice, self.exitPrice)
                 
         return ZMAdjust
@@ -193,14 +214,7 @@ class BertramEntryExit:
 
         pi = self.exitPrice - self.entryPrice - self.costPrice
         denom = self.ET(self.entryPrice, self.exitPrice)
-        if denom == 0:
-            denom = 1
-            
-        try:
-            ZVAdjust = (2.0 / (self.sigma ** 2)) * ((pi**2) / (denom**3)) * self.VarT(self.entryPrice, self.exitPrice)
-        except FloatingPointError:
-            ZVAdjust = (2.0 / (self.sigma ** 2)) * (pi**2) * self.VarT(self.entryPrice, self.exitPrice)
+
+        ZVAdjust = (2.0 / (self.sigma ** 2)) * (pi**2) * self.VarT(self.entryPrice, self.exitPrice)
                                                     
         return ZVAdjust
-    
-    
