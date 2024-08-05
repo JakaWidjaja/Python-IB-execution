@@ -2,6 +2,8 @@ import time
 import pandas as pd
 
 class MarketData:
+    reqIdCounter = 100
+    
     def __init__(self):
         pass
     
@@ -23,13 +25,15 @@ class MarketData:
             contractList.append(cont)
             
         for i, n in enumerate(contractList):
-            self.tws.reqMktData(reqId              = i, 
+            self.tws.reqMktData(reqId              = MarketData.reqIdCounter, 
                                 contract           = n, 
                                 genericTickList    = self.genericTickList, 
                                 snapshot           = self.snapshot, 
                                 regulatorySnapshot = self.regulatorySnapshot, 
                                 mktDataOptions     = self.mktDataOptions)
-        
+            
+            MarketData.reqIdCounter += 1  # Increment the global counter
+            
         time.sleep(self.timeDelay)
 
     def SortMarketData(self, bid, ask, last, contractDictionary):

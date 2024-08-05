@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.special import factorial, gamma, digamma
-from scipy.optimize import minimize
+from scipy.optimize import minimize, dual_annealing
 
 class BertramEntryExit:
     def __init__(self):
@@ -14,27 +14,15 @@ class BertramEntryExit:
         self.theta      = theta
         self.sigma      = sigma
         
-        eta = sigma
-        x0 = [self.guessEntry, self.guessExit]
-        
-        cons = [{'type' : 'ineq', 'fun' : self.Constraint1, 'args' : (self.costPrice, eta, self.mu, self.theta, self.sigma)}, 
-                {'type' : 'ineq', 'fun' : self.Constraint2, 'args' : (self.costPrice, self.mu, self.theta, self.sigma)},
-                {'type' : 'ineq', 'fun' : self.Constraint3, 'args' : (self.mu, self.theta, self.sigma)}]
-        
+        eta = self.sigma
+
         bnd = [(0, 1), (0, 1)]
-        
-        #Define a callback function to adjust x0 if guessEntry == guessExit
-        def callBack(xk):
-            if np.isclose(xk[0], xk[1]):
-                xk[1] += 1e-4 #adjust exit price if entry and exit are equal
-        
-        res = minimize(self.Objective, x0, method = 'SLSQP', 
-                       args        = (self.costPrice, self.mu, self.theta, self.sigma), 
-                       constraints = cons, 
-                       bounds      = bnd, 
-                       callback    = callBack)
-        
-        exitPrice  = np.sqrt((self.sigma**2) / (2.0 * self.theta)) * res.x[1] + self.mu
+
+        res = dual_annealing(self.ObjectiveWithPenalty, bnd, 
+                             args = (self.costPrice, self.mu, self.theta, self.sigma, eta),
+                             maxiter = 1000)
+
+        exitPrice  = np.sqrt((self.sigma**2) / (2.0 * self.theta)) * res.x[1] - self.mu
         entryPrice = np.sqrt((self.sigma**2) / (2.0 * self.theta)) * res.x[0] + self.mu
         
         return [entryPrice, exitPrice]
@@ -56,7 +44,22 @@ class BertramEntryExit:
         entryPriceAdjust = const * (entryPrice - self.mu)
         exitPriceAdjust  = const * (exitPrice  - self.mu)
         
-        return -self.ZM(entryPriceAdjust, exitPriceAdjust, self.costPrice, self.mu, self.theta, self.sigma) * 1e5
+        return abs(self.ZM(entryPriceAdjust, exitPriceAdjust, self.costPrice, self.mu, self.theta, self.sigma)) * 1e5
+    
+    def ObjectiveWithPenalty(self, x, costPrice, mu, theta, sigma, eta):
+        self.x = x
+        self.costPrice = costPrice
+        self.mu = mu
+        self.theta = theta
+        self.sigma = sigma
+        self.eta = eta
+        
+        penalty = 0
+        penalty += max(0, -self.Constraint1(self.x, self.costPrice, self.eta, self.mu, self.theta, self.sigma))
+        penalty += max(0, -self.Constraint2(self.x, self.costPrice, self.mu, self.theta, self.sigma))
+        penalty += max(0, -self.Constraint3(self.x, self.mu, self.theta, self.sigma))
+
+        return (self.Objective(self.x, self.costPrice, self.mu, self.theta, self.sigma) + penalty) * 1e6
     
     #Calibration constrains
     #Variance limit. Variance less than eta. 
@@ -94,7 +97,7 @@ class BertramEntryExit:
         
         #print(entryPriceAdjust, exitPriceAdjust, costPriceAdjust)
         # Ensure that entryPriceAdjust - exitPriceAdjust - costPriceAdjust >= 0
-        return entryPriceAdjust - exitPriceAdjust - costPriceAdjust 
+        return entryPrice - exitPrice#Adjust #- costPriceAdjust 
 
     def Constraint3(self, x, mu, theta, sigma):
         self.x     = x
@@ -198,8 +201,8 @@ class BertramEntryExit:
         self.theta      = theta
         self.sigma      = sigma
         
-        if self.ET(self.entryPrice, self.exitPrice) == 0:
-            print(self.entryPrice, self.exitPrice, self.ET(self.entryPrice, self.exitPrice))
+        #if self.ET(self.entryPrice, self.exitPrice) == 0:
+            #print(self.entryPrice, self.exitPrice, self.ET(self.entryPrice, self.exitPrice))
         
         ZMAdjust = np.sqrt(2 / (self.theta * self.sigma**2)) * \
                 (self.exitPrice - self.entryPrice - self.costPrice) / self.ET(self.entryPrice, self.exitPrice)
@@ -214,7 +217,6 @@ class BertramEntryExit:
 
         pi = self.exitPrice - self.entryPrice - self.costPrice
         denom = self.ET(self.entryPrice, self.exitPrice)
-
-        ZVAdjust = (2.0 / (self.sigma ** 2)) * (pi**2) * self.VarT(self.entryPrice, self.exitPrice)
+        ZVAdjust = (2.0/(self.sigma**2)) * ((pi ** 2) / (denom ** 3)) * self.VarT(self.entryPrice, self.exitPrice)
                                                     
         return ZVAdjust

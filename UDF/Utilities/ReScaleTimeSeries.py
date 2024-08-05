@@ -14,6 +14,16 @@ class ReScaleTimeSeries:
         
         return normTimeSeries
     
+    def NormalisedNegativePositive(self, timeSeries):
+        self.timeSeries = timeSeries
+        
+        minValue = min(self.timeSeries)
+        maxValue = max(self.timeSeries)
+        
+        ReScale = list(2 * (self.timeSeries - minValue) / (maxValue - minValue) - 1)
+        
+        return ReScale
+    
     def Standardised(self, timeSeries):
         self.timeSeries = timeSeries
         

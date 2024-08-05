@@ -18,6 +18,13 @@ class twsWrapper(EWrapper, EClient):
         self.dfPosition = pd.DataFrame(columns=['account' , 'symbol'  , 'sec type',
                                                 'currency', 'position', 'ave cost'])
         
+        self.dfAccountValues = pd.DataFrame(columns=['account', 'tag', 'value', 'currency'])
+        self.reqId = 0
+        
+    def getNextReqId(self):
+        self.reqId += 1
+        return self.reqId
+    
     def Login(self, host, port, clientId, sleepTime):
         self.host      = host
         self.port      = port
@@ -59,7 +66,6 @@ class twsWrapper(EWrapper, EClient):
         self.attrib   = attrib
         
         super().tickPrice(self.reqId, self.tickType, self.price, self.attrib)
-        #print(TickTypeEnum.to_str(self.tickType), self.price)
 
         if TickTypeEnum.to_str(self.tickType) == 'DELAYED_LAST' or TickTypeEnum.to_str(self.tickType) =='LAST':
             self.mktDataLast[reqId] = self.price
@@ -93,5 +99,23 @@ class twsWrapper(EWrapper, EClient):
         else:
             self.dfPosition = pd.concat((self.dfPosition, pd.DataFrame([mapping])), ignore_index = True)
 
+    def reqAccountValue(self):
+        reqId = self.getNextReqId()
+        self.reqAccountSummary(reqId, "All", "$LEDGER")
 
-        
+    def accountSummary(self, reqId, account, tag, value, currency):
+        super().accountSummary(reqId, account, tag, value, currency)
+
+        mapping = {'account': account, 'tag': tag, 'value': value, 'currency': currency}
+
+        if ((self.dfAccountValues['account'] == account) & (self.dfAccountValues['tag'] == tag) & 
+            (self.dfAccountValues['currency'] == currency)).any():
+            self.dfAccountValues.loc[(self.dfAccountValues['account'] == account) &
+                                     (self.dfAccountValues['tag'] == tag) &
+                                     (self.dfAccountValues['currency'] == currency), 'value'] = value
+        else:
+            self.dfAccountValues = pd.concat((self.dfAccountValues, pd.DataFrame([mapping])), ignore_index=True)
+
+    def accountSummaryEnd(self, reqId):
+        super().accountSummaryEnd(reqId)
+        self.cancelAccountSummary(reqId)
