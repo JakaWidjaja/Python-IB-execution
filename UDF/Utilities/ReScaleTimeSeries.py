@@ -24,6 +24,18 @@ class ReScaleTimeSeries:
         
         return ReScale
     
+    def NormalisedNegativePositiveReverse(self, timeSeries, reScaledPrice):
+        self.timeSeries    = timeSeries
+        self.reScaledPrice = reScaledPrice
+        
+        minValue = min(self.timeSeries)
+        maxValue = max(self.timeSeries)
+        
+        unScaledPrice = minValue + ((reScaledPrice + 1) * (maxValue - minValue)) / 2.0
+        
+        return unScaledPrice
+        
+    
     def Standardised(self, timeSeries):
         self.timeSeries = timeSeries
         
