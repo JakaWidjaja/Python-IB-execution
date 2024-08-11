@@ -90,7 +90,7 @@ order.MultiMktOrder(contractDict, direction, quantity)
 #Position
 pos = Positions.Positions(tws)
 print(pos.GetPortPosition(1))
-
+a = pos.GetPortPosition(1)
 
 
 tws.reqAccountValue()
@@ -121,19 +121,21 @@ numberOfStocksToUse    = 3
 signal = MeanRevertingPortfolio.MeanRevertingPortfolio(numberOfStocksToUse, numberOfDataToUse)
 
 #Boolean, enter trading or not
-enterTrading = False
+activeTrading = False
 
 #Trading Portfolio
 portfolio   = []
 longWeights = []
 entryPrice  = 0
 exitPrice   = 0
-#**************************************************************************************
-#======================================================================================
 
-#======================================================================================
-#**************************************************************************************
+#A dictionary of stocks to place order
+stockDict = {}
+direction = []
+quantity  = []
 
+#Placing Order Object
+order = Orders.Orders(tws, timeDelay = 1)
 #**************************************************************************************
 #======================================================================================
 
@@ -170,34 +172,14 @@ while True:
     if midPrices < numberOfDataToUse:
         continue
     
-    #No positions
-    if not enterTrading:
-        #Create a list of stocks combination
-        stockCombinations = signal.StockSelection(midPrices, numberOfStocksToSelect)
-        longPortfolio, shortPortfolio = signal.EntryExitSignal(stockCombinations, midPrices, 'longshort')
+    #Create entry signal
+    activeTrading, entryPrice, exitPrice = signal.PlaceOrder(signal, bidPrices, askPrices, midPrices, 
+                                                             numberOfStocksToSelect, tws, order, 
+                                                             contractDict, activeTrading)
+
+    if activeTrading:
+        #Get Portfolio. positions 
         
-        if not not longPortfolio:
-            stocks       = longPortfolio[1][0]
-            weights      = longPortfolio[1][1]
-            entryPrice   = longPortfolio[1][2]
-            exitPrice    = longPortfolio[1][3]
-            enterTrading = True
-        
-        elif not not shortPortfolio:
-            stocks   = shortPortfolio[1][0]
-            weights      = shortPortfolio[1][1]
-            entryPrice   = shortPortfolio[1][3]
-            exitPrice    = shortPortfolio[1][2]
-            enterTrading = True
-            
-        if enterTrading:
-            #Get cash amount from portfolio
-            tws.reqAccountValue()
-            accountValues = tws.dfAccountValues
-            cash = accountValues.loc[accountValues['tag'] == 'CashBalance', 'value']
-            
-            #Cash amount per stocks
-            cashAmountPerStocks = (weights * cash).astype(int)
         
     
     #Break the loop if market has closed. 
@@ -207,3 +189,4 @@ while True:
         break
 #**************************************************************************************
 #======================================================================================
+
