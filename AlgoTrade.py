@@ -8,6 +8,7 @@ from UDF.Data       import HistoricalData, MarketData
 from UDF.Orders     import Orders
 from UDF.Positions  import Positions
 from UDF.Utilities  import SortMarketData
+from UDF.Portfolio  import PortfolioValue
 
 #Models
 from Strategy.MeanRevertingPortfolio import MeanRevertingPortfolio
@@ -104,6 +105,8 @@ float(a.loc[a['tag'] == 'CashBalance', 'value'].values[0])
 #Initiate objects
 #Get market Data
 mktData = MarketData.MarketData()
+position = Positions.Positions(tws)
+portValue = PortfolioValue.PortfolioValue()
 
 #Sort Market Data
 sortData = SortMarketData.SortMarketData()
@@ -124,15 +127,10 @@ signal = MeanRevertingPortfolio.MeanRevertingPortfolio(numberOfStocksToUse, numb
 activeTrading = False
 
 #Trading Portfolio
-portfolio   = []
-longWeights = []
 entryPrice  = 0
 exitPrice   = 0
+currentPortfolio = []
 
-#A dictionary of stocks to place order
-stockDict = {}
-direction = []
-quantity  = []
 
 #Placing Order Object
 order = Orders.Orders(tws, timeDelay = 1)
@@ -179,8 +177,9 @@ while True:
 
     if activeTrading:
         #Get Portfolio. positions 
-        
-        
+        portfolio = position.GetPortPosition(timeDelay = 0.8)
+        portfolioValue = portValue.Value(portfolio, dfMarketData)
+
     
     #Break the loop if market has closed. 
     if marketOpenTime <= currentTime or currentTime < marketCloseTime:
