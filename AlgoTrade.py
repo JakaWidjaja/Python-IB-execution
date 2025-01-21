@@ -31,8 +31,8 @@ clientId = 1
 #Login to TWS
 tws.Login(host, port, clientId, 2)
 
-marketOpenTime = dt.time(23, 30, 0)
-marketCloseTime = dt.time(6,0,0)
+marketOpenTime = dt.time(10, 30, 0)
+marketCloseTime = dt.time(16,0,0)
 
 #Market Data Type. 1 for live data, 4 for delayed data. 
 marketDataType = 4
@@ -43,33 +43,13 @@ marketDataType = 4
 #**************************************************************************************
 #Contract List
 path = os.getcwd() + '/config/'
-strategyName = 'MeanRevertingPortfolio'
+strategyName = 'AU_MeanRevertingPortfolio'
+optionStrat = 'option'
+futures = 'futures'
 
 #Create Contract
 createContract = MakeContract.MakeContract()
 contractDict = createContract.contractObjectList(path + strategyName + '.csv')
-#**************************************************************************************
-#======================================================================================
-
-#======================================================================================
-#**************************************************************************************
-#Get historical Data
-'''
-histData = HistoricalData.HistoricalData()
-histData.GetHistoricalData(tws, 1, contractDict['WBD'], '1 D', '1 secs')
-df = pd.DataFrame(tws.histData[0])
-'''
-
-'''
-#Get market Data
-mktData = MarketData.MarketData()
-    
-streamThread = threading.Thread(target = mktData.GetMarketData, args=(tws, contractDict, 4, 0.2))
-streamThread.start()
-time.sleep(0.8)
-
-dfMarketData = mktData.SortMarketData(tws.mktDataBid, tws.mktDataAsk, tws.mktDataLast, contractDict)
-'''
 #**************************************************************************************
 #======================================================================================
 
@@ -129,11 +109,16 @@ activeTrading = False
 #Trading Portfolio
 entryPrice  = 0
 exitPrice   = 0
-currentPortfolio = []
-
+direction = 'none'
 
 #Placing Order Object
 order = Orders.Orders(tws, timeDelay = 1)
+
+#Stop loss
+stopLoss      = float('-inf')
+stopLossPerc  = 0.0
+stopLossBig   = 0.05
+stopLossSmall = 0.02
 #**************************************************************************************
 #======================================================================================
 
@@ -157,7 +142,7 @@ while True:
     streamThread = threading.Thread(target = mktData.GetMarketData, args=(tws, 
                                                                           contractDict, 
                                                                           marketDataType, 
-                                                                          0.2))
+                                                                          0.8))
     streamThread.start()
     time.sleep(0.8)
 
@@ -167,20 +152,56 @@ while True:
     bidPrices, askPrices, midPrices = sortData.SortBidAskMid(dfMarketData, bidPrices, askPrices, midPrices)
     
     #Check if the prices list have enough data for calibration. If not then continue.
-    if midPrices < numberOfDataToUse:
+    if len(midPrices) < numberOfDataToUse:
         continue
     
     #Create entry signal
-    activeTrading, entryPrice, exitPrice = signal.PlaceOrder(signal, bidPrices, askPrices, midPrices, 
-                                                             numberOfStocksToSelect, tws, order, 
-                                                             contractDict, activeTrading)
-
+    if not activeTrading:
+        activeTrading, entryPrice, exitPrice, direction = signal.PlaceOrder(signal, bidPrices, askPrices, 
+                                                                            midPrices, numberOfStocksToSelect,
+                                                                            tws, order, contractDict,
+                                                                            activeTrading)   
+    
     if activeTrading:
         #Get Portfolio. positions 
         portfolio = position.GetPortPosition(timeDelay = 0.8)
         portfolioValue = portValue.Value(portfolio, dfMarketData)
-
     
+    #Set the stop loss
+    if activeTrading:
+        #Long Position 
+        if direction == 'long':
+            if portfolioValue >= exitPrice:
+                stopLossPerc = stopLossSmall * -1
+            else:
+                stopLossPer = stopLossBig * -1
+                
+        else: #Short
+            if portfolioValue <= exitPrice:
+                stopLossPerc = stopLossSmall
+            else:
+                stopLossPerc = stopLossBig
+                
+        stopLoss = max(stopLoss, portfolioValue * (1 + stopLossPerc))
+          
+    #Exit 
+    if activeTrading:
+        if direction == 'Long' and portfolioValue <= stopLoss:
+            signal.LiquidationOrder(portfolio, contractDict, order)
+            activeTrading = False
+            entryPrice    = 0
+            exitPrice     = 0
+            stopLoss      = float('-inf')
+            stopLossPerc  = 0.0
+            
+        elif direction == 'short' and portfolioValue >= stopLoss:
+            signal.LiquidationOrder(portfolio, contractDict, order)
+            activeTrading = False
+            entryPrice    = 0
+            exitPrice     = 0
+            stopLoss      = float('-inf')
+            stopLossPerc  = 0.0
+            
     #Break the loop if market has closed. 
     if marketOpenTime <= currentTime or currentTime < marketCloseTime:
         pass
