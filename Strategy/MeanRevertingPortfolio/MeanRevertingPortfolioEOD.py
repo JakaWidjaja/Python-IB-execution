@@ -9,7 +9,7 @@ from UDF.Orders                      import Orders
 
 import warnings
 
-class MeanRevertingPortfolio:
+class MeanRevertingPortfolioEOD:
     def __init__(self, numStockToUse, lengthTimeSeries):
         self.numStockToUse    = numStockToUse
         self.lengthTimeSeries = lengthTimeSeries
@@ -27,8 +27,6 @@ class MeanRevertingPortfolio:
         stockCombination = list(combinations(topStocks, self.numStockToUse))
 
         return stockCombination
-        
-        
     
     def EntryExitSignal(self, portfolioList, data, longShort, lowPriceProb, highPriceProb):
         self.portfolioList = portfolioList
@@ -48,10 +46,8 @@ class MeanRevertingPortfolio:
         
         #Calculate the weights and portfolio time series
         weights       = {}
-        longPosition  = {}
-        shortPosition = {}
-        longCount     = 1
-        shortCount    = 1
+        positions     = {}
+        count         = 1
 
         for c in self.portfolioList:
             stockList = data.loc[:, c]
@@ -62,7 +58,6 @@ class MeanRevertingPortfolio:
                                    self.lengthTimeSeries)
             
             if sum(weights[c]) == 0:
-                
                 continue
             
             sumProduct = stockList * weights[c]
@@ -77,95 +72,93 @@ class MeanRevertingPortfolio:
             highPrice, lowPrice = highLow.CalibrateModel(mu, theta, sigma, normTimeSeries[-1], 
                                                          self.lowPriceProb, self.highPriceProb)
             
-            
             highPriceUnScaled = reScale.NormalisedNegativePositiveReverse(portfolioTimeSeries, highPrice)
             lowPriceUnScaled = reScale.NormalisedNegativePositiveReverse(portfolioTimeSeries, lowPrice)
             
-            #Check whether there is trading opportunity
-            if entExt.EntryRisingPrice(normTimeSeries, lowPrice) == 'Enter Long':
-                longPosition[longCount] = [c, weights[c], highPriceUnScaled, lowPriceUnScaled]
-                longCount += 1
+            positions[c] = [c, weights[c], highPriceUnScaled, lowPriceUnScaled, mu, theta, sigma]
             
-            if entExt.EntryFallingPrice(normTimeSeries, highPrice) == 'Enter Short':
-                shortPosition[shortCount] = [c, weights[c] * -1, highPriceUnScaled, lowPriceUnScaled]
-                shortCount += 1
-                
-        return longPosition, shortPosition
+            count += 1
+        
+        #sort positions
+        positions = dict(sorted(positions.items(), key = lambda x:(x[1][5], x[1][6]), reverse = True))
+        
+        return positions
       
-    def PlaceOrder(self, signalGeneration, bidPrices, askPrices, midPrices, 
-                   numberOfStocksToSelect, tws, orderObject, contractDict, activeTrading):
-        self.signalGeneration       = signalGeneration
-        self.bidPrices              = bidPrices
-        self.askPrices              = askPrices
-        self.midPrices              = midPrices
-        self.numberOfStocksToSelect = numberOfStocksToSelect
-        self.tws                    = tws
-        self.orderObject            = orderObject
-        self.contractDict           = contractDict
-        self.activeTrading          = activeTrading #boolean to determine if currently active
+        
+    def PortfolioTimeSeries(self, portfolios, marketData, portfolioTimeSeries):
+        self.portfolios          = portfolios
+        self.marketData          = marketData
+        self.portfolioTimeSeries = portfolioTimeSeries
+        
+        for key, value in self.portfolios.items():
+            stockCombinations = value[0]
+            weights = value[1]
+            
+            portfolioPrice = 0
+            for i, w in enumerate(weights):
+                if w <= 0:
+                    portfolioPrice += w * self.marketData.loc[self.marketData['ticker'] == stockCombinations[i], 'ask'].values[0]
+                else:
+                    portfolioPrice += w * self.marketData.loc[self.marketData['ticker'] == stockCombinations[i], 'bid'].values[0]
+            
+            self.portfolioTimeSeries[stockCombinations].append(portfolioPrice)
+        
+        return self.portfolioTimeSeries
+    
+    def PlaceOrder(self, tws, marketData, portfolios, portfolioTimeSeries, contractDict, activeTrading, 
+                   orderObject):
+        self.tws                 = tws
+        self.marketData          = marketData
+        self.portfolios          = portfolios
+        self.portfolioTimeSeries = portfolioTimeSeries
+        self.contractDict        = contractDict
+        self.activeTrading       = activeTrading
+        self.orderObject         = orderObject
+        
+        #Initialised variable
+        entExt  = EntryExit.EntryExit()
         
         if self.activeTrading: #if active
             return self.activeTrading, 0, 0, 'none'
-        else: #if not active
+        else:
             stockDict = {}
             direction = []
             quantity  = []
-            direction ='none'
             
-            #Create a list of stocks combinations
-            stockCombinations = self.signalGeneration.StockSelection(self.midPrices, 
-                                                                     self.numberOfStocksToSelect)
-            
-            #Create long/short portfolio 
-            longOrder, shortOrder = self.signalGeneration.EntryExitSignal(stockCombinations, self.midPrices, 
-                                                                          'longshort')
-            
-            #Check if there are opportunities to enter into a trade
-            if longOrder:
-                stocks     = longOrder[1][0]
-                weights    = longOrder[1][1] #numpy array
-                entryPrice = longOrder[1][2]
-                exitPrice  = longOrder[1][3]
-                self.activeTrading = True
-                
-            elif shortOrder:
-                stocks     = shortOrder[1][0]
-                weights    = shortOrder[1][1]
-                entryPrice = shortOrder[1][3]
-                exitPrice  = shortOrder[1][2]
-                self.activeTrading = True
-                
-            if self.activeTrading:
-                #Get the cash amount from portfolio
-                self.tws.reqAccountValue()
-                accountValues = self.tws.dfAccountValues
-                cash = float(accountValues.loc[accountValues['tag'] == 'CashBalance', 'value'].values[0])
-                
-                #Cash amount per stocks
-                cashAmountPerStocks = (abs(weights) * cash).astype(int)
-                
-                #Set-up variables for placing order
-                for i, n in enumerate(stocks):
-                    stockDict[n] = self.contractDict[n]
-                    if weights[i] < 0:
-                        quantity.append(cashAmountPerStocks[i] / self.bidPrices.iloc[-1, self.bidPrices.columns.get_loc(n)])
-                        direction.append('SELL')
-                    elif weights[i] > 0:
-                        quantity.append(cashAmountPerStocks[i] / self.bidPrices.iloc[-1, self.askPrices.columns.get_loc(n)])
-                        direction.append('BUY')
+            for key, value in self.portfolioTimeSeries.items():
+                stockCombinations = key
+                timeSeries        = value
+                weights           = self.portfolios[stockCombinations][1]
+                lowPrice          = self.portfolios[stockCombinations][2]
+                highPrice         = self.portfolios[stockCombinations][3]
+
+                if entExt.EntryRisingPrice(timeSeries, lowPrice) == 'Enter Long':
+                    #Get the cash amount from portfolio
+                    self.tws.reqAccountValue()
+                    accountValues = self.tws.dfAccountValues
+                    cash = float(accountValues.loc[accountValues['tag'] == 'CashBalance', 'value'].values[0])
+                    
+                    #Cash amount per stocks
+                    cashAmountPerStocks = (abs(weights) * cash).astype(int)
+                    
+                    #identify the quantity and direction
+                    for i, n in enumerate(stockCombinations):
+                        bidPrice = self.marketData.loc[self.marketData['ticker'] == n, 'bid'].values[0]
+                        askPrice = self.marketData.loc[self.marketData['ticker'] == n, 'ask'].values[0]
                         
-                orderObject.MultiMktOrder(stockDict, direction, quantity)
+                        stockDict[n] = self.contractDict[n]
+                        if weights[i] < 0:
+                            quantity.append(cashAmountPerStocks[i] / bidPrice)
+                            direction.append('SELL')
+                        elif weights[i] > 0:
+                            quantity.append(cashAmountPerStocks[i] / askPrice)
+                            direction.append('BUY')
+                            
+                    self.orderObject.MultiMktOrder(stockDict, direction, quantity)
                 
-                if entryPrice < exitPrice:
-                    direction = 'long'
-                elif entryPrice > exitPrice:
-                    direction = 'short'
-                else:
-                    direction = 'none'
-                
-                return True, entryPrice, exitPrice, direction #Active 
-                
+                    return True, lowPrice, highPrice, 'long' #Active 
             return False, 0, 0, direction #Not active and no signal to be active. 
+                 
         
     def LiquidationOrder(self, portfolio, contractDict, orderObject):
         self.portfolio    = portfolio

@@ -1,11 +1,11 @@
 from itertools import combinations
 
-from UDF.Portfolio                   import PortfolioSelection, PortfolioWeights
-from UDF.Utilities                   import ReScaleTimeSeries
-from UDF.Models.OrnsteinUhlenbeck    import OrnsteinUhlenbeck 
-from UDF.Models.OUHittingProbability import OUHittingProbability
-from UDF.EntryExit                   import EntryExit
-from UDF.Orders                      import Orders
+from UDF.Portfolio                import PortfolioSelection, PortfolioWeights
+from UDF.Utilities                import ReScaleTimeSeries
+from UDF.Models.OrnsteinUhlenbeck import OrnsteinUhlenbeck 
+from UDF.Models.BertramEntryExit  import BertramEntryExit
+from UDF.EntryExit                import EntryExit
+from UDF.Orders                   import Orders
 
 import warnings
 
@@ -30,12 +30,10 @@ class MeanRevertingPortfolio:
         
         
     
-    def EntryExitSignal(self, portfolioList, data, longShort, lowPriceProb, highPriceProb):
+    def EntryExitSignal(self, portfolioList, data, longShort):
         self.portfolioList = portfolioList
         self.data          = data
         self.longShort     = longShort
-        self.lowPriceProb  = lowPriceProb
-        self.highPriceProb = highPriceProb
         
         warnings.filterwarnings("ignore")
         
@@ -43,7 +41,7 @@ class MeanRevertingPortfolio:
         w       = PortfolioWeights.PortfolioWeights()
         reScale = ReScaleTimeSeries.ReScaleTimeSeries()
         oh      = OrnsteinUhlenbeck.OrnsteinUhlenbeck()
-        highLow = OUHittingProbability.OUHittingProbability()
+        highLow = BertramEntryExit.BertramEntryExit()
         entExt  = EntryExit.EntryExit()
         
         #Calculate the weights and portfolio time series
@@ -52,7 +50,6 @@ class MeanRevertingPortfolio:
         shortPosition = {}
         longCount     = 1
         shortCount    = 1
-
         for c in self.portfolioList:
             stockList = data.loc[:, c]
             weights[c] = w.BoxTiao(stockList, 
@@ -60,10 +57,6 @@ class MeanRevertingPortfolio:
                                    [0.5] * self.numStockToUse, 
                                    self.longShort, 
                                    self.lengthTimeSeries)
-            
-            if sum(weights[c]) == 0:
-                
-                continue
             
             sumProduct = stockList * weights[c]
             portfolioTimeSeries = sumProduct.sum(axis = 1)
@@ -74,8 +67,9 @@ class MeanRevertingPortfolio:
             mu, theta, sigma = oh.Moment(normTimeSeries)
             
             #Calibrate high and low price
-            highPrice, lowPrice = highLow.CalibrateModel(mu, theta, sigma, normTimeSeries[-1], 
-                                                         self.lowPriceProb, self.highPriceProb)
+            highPrice, lowPrice = highLow.CalibrateModel(0.0005, 
+                                                         max(normTimeSeries), 
+                                                         min(normTimeSeries), mu, theta, sigma)
             
             
             highPriceUnScaled = reScale.NormalisedNegativePositiveReverse(portfolioTimeSeries, highPrice)
@@ -90,7 +84,7 @@ class MeanRevertingPortfolio:
                 shortPosition[shortCount] = [c, weights[c] * -1, highPriceUnScaled, lowPriceUnScaled]
                 shortCount += 1
                 
-        return longPosition, shortPosition
+            return longPosition, shortPosition
       
     def PlaceOrder(self, signalGeneration, bidPrices, askPrices, midPrices, 
                    numberOfStocksToSelect, tws, orderObject, contractDict, activeTrading):
