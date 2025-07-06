@@ -1,8 +1,11 @@
 import numpy as np
+
+
 from scipy.optimize import minimize
 from scipy.signal import savgol_filter
 
 from UDF.Models.OrnsteinUhlenbeck import OrnsteinUhlenbeck
+
 
 class PortfolioWeightsOH:
     def __init__(self):
@@ -41,10 +44,20 @@ class PortfolioWeightsOH:
             bnds = [(0.0, 0.99)] * len(weights)
         elif longShort == 'short':
             bnds = [(-0.99, 0.0)] * len(weights)
-            
-        res = minimize(objective, init, method = 'SLSQP', bounds = bnds, constraints = const)
         
-        return res.x
+        methods = ['SLSQP', 'trust-constr', 'BFGS', 'Nelder-Mead', 'Powell', 'trust-constr']
+        res = None
+        for m in methods:
+            try:
+                res = minimize(objective, init, method=m, bounds=bnds, constraints=const)
+                return res.x
+            except Exception as e:
+                print()
+                
+        if res is None:
+            return [0.0] * len(weights)
+        
+        
     
 if __name__ == '__main__':
     stockName = ['APH', 'BAC', 'BKR']

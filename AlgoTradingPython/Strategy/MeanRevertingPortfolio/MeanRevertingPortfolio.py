@@ -9,8 +9,8 @@ class MeanRevertingPortfolio:
     def __init__(self, numTopStocks, lengthTimeSeries):
         self.numTopStocks     = numTopStocks      # Top stocks to use from PCA 
         self.lengthTimeSeries = lengthTimeSeries  # How many data to use
-        self.portSelection = PortfolioSelection()
-        self.portWeight = PortfolioWeightsOH()
+        self.portSelection    = PortfolioSelection()
+        self.portWeight       = PortfolioWeightsOH()
 
     def StockSelection(self, data, numStockToUse, highLow):       
         '''

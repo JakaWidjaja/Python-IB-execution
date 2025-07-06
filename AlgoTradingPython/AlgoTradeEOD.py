@@ -134,7 +134,7 @@ longShort          = configModel.loc[configModel['name'] == 'long short'       ,
 
 strategy         = MeanRevertingPortfolio.MeanRevertingPortfolio(topStocks, numCalibrationData)
 
-portCombinations = strategy.StockSelection(data, stockCombinations, longShort)
+portCombinations = strategy.StockSelection(data, stockCombinations, 'low')
 portWeights      = strategy.PortfolioPositions(portCombinations, data, longShort)
 
 # Unique tickers

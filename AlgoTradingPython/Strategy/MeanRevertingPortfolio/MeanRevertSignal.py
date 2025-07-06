@@ -11,8 +11,8 @@ class MeanRevertSignal:
         
         if hurst < 0.40 and hl > 0.0 and hl < 100.0:
             # Short
-            if ((lastPrice > mu) and (doubleSMA['sma short'].iloc[-1] > (mu + sigma))) or \
-               ((lastPrice > mu) and (doubleSMA['sma short'].iloc[-1] < (mu - sigma))):
+            if ((lastPrice > mu) and (doubleSMA['sma short'].iloc[-1] > (mu + sigma *5))) or \
+               ((lastPrice > mu) and (doubleSMA['sma short'].iloc[-1] < (mu - sigma *5))):
                    strategy = pd.DataFrame([{'direction'           : 'short',
                                              'stock 1 name'        : stockNames[0], 
                                              'stock 2 name'        : stockNames[1], 
@@ -27,8 +27,8 @@ class MeanRevertSignal:
                                              'portfolio stop loss' : lastPrice * (1 - self.stopLossPerc1)
                                             }])
                    
-            elif ((lastPrice < mu) and (doubleSMA['sma short'].iloc[-1] < (mu - sigma))) or \
-                 ((lastPrice < mu) and (doubleSMA['sma short'].iloc[-1] > (mu + sigma))):
+            elif ((lastPrice < mu) and (doubleSMA['sma short'].iloc[-1] < (mu - sigma * 5.0))) or \
+                 ((lastPrice < mu) and (doubleSMA['sma short'].iloc[-1] > (mu + sigma * 5.0))):
                      strategy = pd.DataFrame([{'direction'           : 'long',
                                                'stock 1 name'        : stockNames[0], 
                                                'stock 2 name'        : stockNames[1], 

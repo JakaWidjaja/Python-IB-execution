@@ -59,7 +59,7 @@ class GenerateSignals:
            
             ###########################################################################################     
             # Trending
-            trendingStrategy = self.trending.Signal(hurst, vr, hl, longShortSignal, lastPrice, stockNames, portfolioData)
+            trendingStrategy = self.trending.Signal(hurst, vr, hl, self.doubleSMA, lastPrice, stockNames, portfolioData)
             if not trendingStrategy.empty:
                 self.trendStrategy = pd.concat([self.trendStrategy, trendingStrategy], ignore_index = True)
                 
@@ -67,7 +67,7 @@ class GenerateSignals:
   
             ###########################################################################################     
             # Mean Reverting
-            meanRevertStrategy = self.meanRevert.Signal(hurst, hl, longShortSignal, mu, sigma, lastPrice, stockNames, portfolioData)
+            meanRevertStrategy = self.meanRevert.Signal(hurst, hl, self.doubleSMA, mu, sigma, lastPrice, stockNames, portfolioData)
             if not meanRevertStrategy.empty:
                 self.meanRevertStrategy = pd.concat([self.meanRevertStrategy , meanRevertStrategy], ignore_index = True)
             ###########################################################################################    
