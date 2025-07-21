@@ -4,7 +4,7 @@ import copy
 from scipy.signal import savgol_filter
 
 from UDF.Models.OrnsteinUhlenbeck import OrnsteinUhlenbeck
-from Strategy.MeanRevertingPortfolio import TrendSignal, MeanRevertSignal
+from Strategy.MeanRevertingPortfolio import MeanRevertSignal
 
 class GenerateSignals:
     def __init__(self, config, indicators, stockCombinations, money):   
@@ -19,7 +19,6 @@ class GenerateSignals:
         self.oh = OrnsteinUhlenbeck.OrnsteinUhlenbeck()
         
         # Strategy
-        self.trending = TrendSignal.TrendSignal(config)
         self.meanRevert = MeanRevertSignal.MeanRevertSignal(config)
         
         # Container
@@ -45,18 +44,14 @@ class GenerateSignals:
             
             # Indicators
             hurst = self.hurstExp.Calculate(list(portfolioData['total smooth']))
-            vr    = self.vRatio.Calculate(list(portfolioData['total smooth']))
             hl    = self.hlife.Calculate(list(portfolioData['total smooth']))
             
             # Ornstein-Uhlenbeck
             mu, theta, sigma = self.oh.Moment(list(portfolioData['total smooth']))
             
-            # Double SMA
-            longShortSignal = self.doubleSMA.Calculate(portfolioData)
-            
             # Last Price
             lastPrice = portfolioData['total'].iloc[-1]
-           
+            '''
             ###########################################################################################     
             # Trending
             trendingStrategy = self.trending.Signal(hurst, vr, hl, self.doubleSMA, lastPrice, stockNames, portfolioData)
@@ -64,7 +59,7 @@ class GenerateSignals:
                 self.trendStrategy = pd.concat([self.trendStrategy, trendingStrategy], ignore_index = True)
                 
             ###########################################################################################    
-  
+            '''
             ###########################################################################################     
             # Mean Reverting
             meanRevertStrategy = self.meanRevert.Signal(hurst, hl, self.doubleSMA, mu, sigma, lastPrice, stockNames, portfolioData)
@@ -72,4 +67,4 @@ class GenerateSignals:
                 self.meanRevertStrategy = pd.concat([self.meanRevertStrategy , meanRevertStrategy], ignore_index = True)
             ###########################################################################################    
         
-        return self.meanRevertStrategy, self.trendStrategy   
+        return self.meanRevertStrategy

@@ -30,14 +30,13 @@ marketDataType = 4
 #**************************************************************************************
 #Contract List
 path = os.getcwd() + '/config/'
-strategyName = 'sp500'
-optionStrat = 'option - ES Mini'
-futures = 'futures'
+strategyName = 'configMeanRevertPortEOD'
 
+contractList = pd.read_excel(path + strategyName + '.xlsx', sheet_name = 'Contracts')
 
 #Create Contract
 createContract = MakeContract.MakeContract()
-contractDict = createContract.contractObjectList(path + strategyName + '.csv')
+contractDict = createContract.contractObjectList(contractList)
 #**************************************************************************************
 #======================================================================================
 
@@ -46,17 +45,62 @@ contractDict = createContract.contractObjectList(path + strategyName + '.csv')
 #Equity hist data
 histData = HistoricalData.HistoricalData()
 
-df = pd.DataFrame(columns = ['date', 'name', 'open', 'high', 'low', 'close', 'volume'])
-count = 821
+# Create master DataFrame with correct structure
+df = pd.DataFrame(columns=['date', 'time', 'name', 'open', 'high', 'low', 'close', 'volume'])
+
+count = 200  # IB historical data request ID
 for name, contract in contractDict.items():
-    print(name)
-    histData.GetHistoricalData(tws, count, contract, '5 d', '30 secs')
-    time.sleep(5)
-    
-    temp = tws.histData[count]
-    temp.insert(1, 'name', name)
-    df = pd.concat([df, temp])
+    print(f"Requesting data for: {name}")
+    histData.GetHistoricalData(tws, count, contract, '5 D', '30 secs')
+
+    # Wait for the data to arrive or timeout
+    timeout = 30  # seconds
+    start_time = time.time()
+    while count not in tws.histData:
+        if time.time() - start_time > timeout:
+            print(f"Timeout waiting for {name} (request ID {count})")
+            break
+        time.sleep(0.5)
+
+    if count in tws.histData:
+        temp = tws.histData[count]
+
+        # Add stock name column
+        temp['name'] = name
+
+        # Handle missing 'time' by splitting 'date' if needed
+        if 'date' in temp.columns and 'time' not in temp.columns:
+            if temp['date'].dtype == object or pd.api.types.is_string_dtype(temp['date']):
+                try:
+                    dt_split = temp['date'].str.split(" ", n=1, expand=True)
+                    if dt_split.shape[1] == 2:
+                        temp['date'] = dt_split[0]
+                        temp['time'] = dt_split[1]
+                    else:
+                        temp['time'] = ""
+                except Exception as e:
+                    print(f"Couldn't split datetime for {name}: {e}")
+                    temp['time'] = ""
+            else:
+                temp['time'] = ""
+
+        # Ensure all required columns are present
+        expected_cols = ['date', 'time', 'name', 'open', 'high', 'low', 'close', 'volume']
+        for col in expected_cols:
+            if col not in temp.columns:
+                temp[col] = None  # Fill missing columns with NaN
+
+        # Reorder and append
+        temp = temp[expected_cols]
+        df = pd.concat([df, temp], ignore_index=True)
+
+        # remove entry to save memory
+        del tws.histData[count]
+    else:
+        print(f"No data received for {name}")
+
     count += 1
+
     
 df['date'] = pd.to_datetime(df['date'], format = '%Y%m%d').dt.date
 df['date'] = pd.to_datetime(df['date'], format = '%Y%m%d %H:%M:%S')

@@ -25,7 +25,7 @@ class PortfolioWeightsOH:
         def objective(w):
             weightedSeries = timeSeries @ w
             
-            weightedSeries = savgol_filter(weightedSeries, window_length = 30, polyorder = 10)
+            weightedSeries = savgol_filter(weightedSeries, window_length = 31, polyorder = 10)
         
             mu, theta, sigma = self.oh.Moment(list(weightedSeries))
             
@@ -45,7 +45,7 @@ class PortfolioWeightsOH:
         elif longShort == 'short':
             bnds = [(-0.99, 0.0)] * len(weights)
         
-        methods = ['SLSQP', 'trust-constr', 'BFGS', 'Nelder-Mead', 'Powell', 'trust-constr']
+        methods = ['SLSQP', 'trust-constr', 'BFGS', 'Nelder-Mead', 'Powell']
         res = None
         for m in methods:
             try:

@@ -4,6 +4,8 @@ class MethodMoment:
     '''
     Ornstein Uhlenbeck model. 
     Calibrated using Method of Moment
+    theta = speed of reversion
+    mu = long term mean
     '''
     
     def __init__(self, timeSeries):

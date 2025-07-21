@@ -189,15 +189,12 @@ while True:
     combineData = pd.concat([histData, marketData], ignore_index = True)
     
     # Create signals
-    signalMeanRevert, signalTrend = signal.Signals(combineData)
+    signalMeanRevert = signal.Signals(combineData)
     
     # Dashboard
     with placeHolder.container():
         st.subheader(" Mean Reversion Strategy")
         st.dataframe(signalMeanRevert)
-        
-        st.subheader(" Trending Strategy")
-        st.dataframe(signalTrend)
     time.sleep(3)
     
     #Break the loop if market has closed. 
