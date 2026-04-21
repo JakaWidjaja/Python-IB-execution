@@ -3,24 +3,16 @@ class OptionContract():
         pass
     
     def contract(self, twsContract, symbol, secType, currency, exchange, optType, strike, lastTradeDateOrContractMonth, 
-                 multiplier):
-        self.twsContract = twsContract
-        self.symbol      = symbol
-        self.secType     = secType
-        self.currency    = currency
-        self.exchange    = exchange
-        self.optType     = optType
-        self.strike      = strike
-        self.lastTradeDateOrContractMonth = lastTradeDateOrContractMonth
-        self.multiplier  = multiplier
+                 tradingClass, multiplier):
         
-        self.twsContract.symbol     = self.symbol
-        self.twsContract.secType    = self.secType
-        self.twsContract.currency   = self.currency
-        self.twsContract.exchange   = self.exchange
-        self.twsContract.right      = self.optType
-        self.twsContract.strike     = self.strike
-        self.twsContract.multiplier = self.multiplier
-        self.twsContract.lastTradeDateOrContractMonth = self.lastTradeDateOrContractMonth
+        twsContract.symbol                       = symbol
+        twsContract.secType                      = secType
+        twsContract.currency                     = currency
+        twsContract.exchange                     = exchange
+        twsContract.right                        = optType
+        twsContract.strike                       = str(int(strike))
+        twsContract.multiplier                   = str(int(multiplier))
+        twsContract.lastTradeDateOrContractMonth = str(int(lastTradeDateOrContractMonth))
+        twsContract.tradingClass                 = tradingClass
         
-        return self.twsContract
+        return twsContract
