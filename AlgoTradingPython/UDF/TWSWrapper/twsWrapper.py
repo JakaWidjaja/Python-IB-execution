@@ -9,7 +9,8 @@ import pandas as pd
 class twsWrapper(EWrapper, EClient):
     def __init__(self):
         EClient.__init__(self, self)
-        self.histData = {}
+        self.histData         = {}
+        self.histDataComplete = {}
         
         self.mktDataBid  = {}
         self.mktDataAsk  = {}
@@ -34,23 +35,15 @@ class twsWrapper(EWrapper, EClient):
         self.tickData = pd.DataFrame(columns = ['symbol', 'price', 'size', 'time', 'exchange', 'specialCond'])
         
     def tickByTickAllLast(self, reqId, tickType, time, price, size, attribs, exchange, specialConditions):
-        self.reqId             = reqId
-        self.tickType          = tickType
-        self.time              = time
-        self.price             = price
-        self.size              = size
-        self.attribs           = attribs
-        self.exchange          = exchange 
-        self.specialConditions = specialConditions
         
         symbol = self.reqIdToSymbol.get(reqId, "Unknown Symbol")
         if symbol != "Unknown Symbol":
             newRow = pd.DataFrame([{'symbol'            : symbol, 
-                                    'price'             : self.price, 
-                                    'size'              : self.size, 
-                                    'time'              : self.time, 
-                                    'exchange'          : self.exchange, 
-                                    'specialConditions' : self.specialConditions}])
+                                    'price'             : price, 
+                                    'size'              : size, 
+                                    'time'              : time, 
+                                    'exchange'          : exchange, 
+                                    'specialConditions' : specialConditions}])
             
             self.tickData = pd.concat([self.tickData, newRow], ignore_index = True)
     
@@ -58,82 +51,66 @@ class twsWrapper(EWrapper, EClient):
         self.reqId += 1
         return self.reqId
     
-    def Login(self, host, port, clientId, sleepTime):
-        self.host      = host
-        self.port      = port
-        self.clientId  = clientId
-        self.sleepTime = sleepTime
-        
-        self.connect(self.host, self.port, self.clientId)
+    def Login(self, host, port, clientId, sleepTime):        
+        self.connect(host, port, clientId)
         
         connThread = threading.Thread(target = self.run, daemon = True)
         connThread.start()
         
         #Allow sometime to establish connection
-        time.sleep(self.sleepTime)
+        time.sleep(sleepTime)
         
-    def historicalData(self, reqId, bar):
-        self.reqId = reqId
-        self.bar   = bar
+    def error(self, reqId, errorCode, errorMsg):
+        print(f"❗ IB ERROR | reqId={reqId} | code={errorCode} | msg={errorMsg}")
         
-        if self.reqId not in self.histData:
-            self.histData[self.reqId] = pd.DataFrame([{'date'   : self.bar.date, 
-                                                       'open'   : self.bar.open, 
-                                                       'high'   : self.bar.high, 
-                                                       'low'    : self.bar.low, 
-                                                       'close'  : self.bar.close, 
-                                                       'volume' : self.bar.volume}])
+    def historicalData(self, reqId, bar):        
+        newRow = pd.DataFrame([{
+        'date': bar.date,
+        'open': bar.open,
+        'high': bar.high,
+        'low': bar.low,
+        'close': bar.close,
+        'volume': bar.volume
+        }])
+    
+        if reqId not in self.histData or isinstance(self.histData[reqId], list):
+            self.histData[reqId] = newRow
         else:
-            self.histData[self.reqId] = pd.concat((self.histData[self.reqId], 
-                                                   pd.DataFrame([{'date'   : self.bar.date, 
-                                                                  'open'   : self.bar.open, 
-                                                                  'high'   : self.bar.high, 
-                                                                  'low'    : self.bar.low, 
-                                                                  'close'  : self.bar.close, 
-                                                                  'volume' : self.bar.volume}])))
+            self.histData[reqId] = pd.concat([self.histData[reqId], newRow], ignore_index=True)
+            
+    def historicalDataEnd(self, reqId, start, end):
+        print(f"Historical data complete for reqId={reqId}")
+        if reqId in self.histDataComplete:
+            self.histDataComplete[reqId].set()
         
     def tickPrice(self, reqId, tickType, price, attrib):
-        self.reqId    = reqId
-        self.tickType = tickType
-        self.price    = price
-        self.attrib   = attrib
         
-        super().tickPrice(self.reqId, self.tickType, self.price, self.attrib)
+        super().tickPrice(reqId, tickType, price, attrib)
         
         # Get the stock symbol using the reqId
         symbol = self.reqIdToSymbol.get(reqId, "Unknown Symbol")
         
         if symbol != "Unknown Symbol":
-            if TickTypeEnum.to_str(self.tickType) == 'DELAYED_LAST' or TickTypeEnum.to_str(self.tickType) =='LAST':
-                self.mktDataLast[symbol] = self.price
-            if TickTypeEnum.to_str(self.tickType) == 'DELAYED_BID' or TickTypeEnum.to_str(self.tickType) =='BID':
+            if TickTypeEnum.to_str(tickType) == 'DELAYED_LAST' or TickTypeEnum.to_str(tickType) =='LAST':
+                self.mktDataLast[symbol] = price
+            if TickTypeEnum.to_str(tickType) == 'DELAYED_BID' or TickTypeEnum.to_str(tickType) =='BID':
                 self.mktDataBid[symbol] = price
-            if TickTypeEnum.to_str(self.tickType) == 'DELAYED_ASK' or TickTypeEnum.to_str(self.tickType) =='ASK':
+            if TickTypeEnum.to_str(tickType) == 'DELAYED_ASK' or TickTypeEnum.to_str(tickType) =='ASK':
                 self.mktDataAsk[symbol] = price
 
     def tickOptionComputation(self, reqId, tickType, impliedVol, delta, optPrice, pvDividend, gamma, vega, 
                               theta, undPrice):
-        self.reqId      = reqId
-        self.tickType   = tickType
-        self.impliedVol = impliedVol
-        self.delta      = delta
-        self.optPrice   = optPrice
-        self.pvDividend = pvDividend
-        self.gamma      = gamma
-        self.vega       = vega
-        self.theta      = theta
-        self.undPrice   = undPrice
         
         symbol = self.reqIdToSymbol.get(reqId, 'unknown Symbol')
         if symbol != "Unknown Symbol":
-            self.mktImpVol[symbol]   = self.impliedVol
-            self.mktDelta[symbol]    = self.delta
-            self.mktGamma[symbol]    = self.gamma
-            self.mktVega[symbol]     = self.vega
-            self.mktTheta[symbol]    = self.theta
-            self.mktUndPrice[symbol] = self.undPrice
-            self.mktOptPrice[symbol] = self.optPrice
-            self.mktPvDiv[symbol]    = self.pvDividend
+            self.mktImpVol[symbol]   = impliedVol
+            self.mktDelta[symbol]    = delta
+            self.mktGamma[symbol]    = gamma
+            self.mktVega[symbol]     = vega
+            self.mktTheta[symbol]    = theta
+            self.mktUndPrice[symbol] = undPrice
+            self.mktOptPrice[symbol] = optPrice
+            self.mktPvDiv[symbol]    = pvDividend
 
     def requestImpliedVolatility(self, contract):
         self.contract = contract
@@ -146,24 +123,19 @@ class twsWrapper(EWrapper, EClient):
         super().nextValidId(orderId)
         self.nextValidOrderId = orderId
         
-    def position(self, account, contract, position, avgCost):
-        self.account  = account
-        self.contract = contract
-        self.position = position
-        self.avgCost  = avgCost
-        
+    def position(self, account, contract, position, avgCost):        
         super().position(account, contract, position, avgCost)
         
-        mapping = {'account'  : self.account, 
-                   'symbol'   : self.contract.symbol, 
-                   'sec type' : self.contract.secType, 
-                   'currency' : self.contract.currency, 
-                   'position' : self.position, 
-                   'ave cost' : self.avgCost}
+        mapping = {'account'  : account, 
+                   'symbol'   : contract.symbol, 
+                   'sec type' : contract.secType, 
+                   'currency' : contract.currency, 
+                   'position' : position, 
+                   'ave cost' : avgCost}
         
-        if self.dfPosition['symbol'].str.contains(self.contract.symbol).any():
-            self.dfPosition.loc[self.dfPosition['symbol'] == self.contract.symbol, 'position'] = self.position
-            self.dfPosition.loc[self.dfPosition['symbol'] == self.contract.symbol, 'ave cost'] = self.avgCost
+        if self.dfPosition['symbol'].str.contains(contract.symbol).any():
+            self.dfPosition.loc[self.dfPosition['symbol'] == contract.symbol, 'position'] = position
+            self.dfPosition.loc[self.dfPosition['symbol'] == contract.symbol, 'ave cost'] = avgCost
         else:
             self.dfPosition = pd.concat((self.dfPosition, pd.DataFrame([mapping])), ignore_index = True)
 

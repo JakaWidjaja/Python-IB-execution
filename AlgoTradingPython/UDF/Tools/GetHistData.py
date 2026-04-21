@@ -7,9 +7,12 @@ from UDF.Contract   import MakeContract
 from UDF.Data       import HistoricalData
 
 #Library
+from threading import Event
 import pandas as pd
 import datetime as dt
 import time as time
+import matplotlib.pyplot as plt
+import pickle
 
 #======================================================================================
 #**************************************************************************************
@@ -48,19 +51,22 @@ histData = HistoricalData.HistoricalData()
 # Create master DataFrame with correct structure
 df = pd.DataFrame(columns=['date', 'time', 'name', 'open', 'high', 'low', 'close', 'volume'])
 
-count = 200  # IB historical data request ID
+duration = '3 M' #'5 Y' # '10 D'
+intervals = '2 mins' #'1 day'# '30 secs
+timeDelay = 30
+count = 150  # IB historical data request ID
 for name, contract in contractDict.items():
     print(f"Requesting data for: {name}")
-    histData.GetHistoricalData(tws, count, contract, '5 D', '30 secs')
+    histData.GetHistoricalData(tws, count, contract, duration, intervals)
 
     # Wait for the data to arrive or timeout
-    timeout = 30  # seconds
+    timeout = 160  # seconds
     start_time = time.time()
     while count not in tws.histData:
         if time.time() - start_time > timeout:
             print(f"Timeout waiting for {name} (request ID {count})")
             break
-        time.sleep(0.5)
+        time.sleep(timeDelay)
 
     if count in tws.histData:
         temp = tws.histData[count]
@@ -106,6 +112,7 @@ df['date'] = pd.to_datetime(df['date'], format = '%Y%m%d').dt.date
 df['date'] = pd.to_datetime(df['date'], format = '%Y%m%d %H:%M:%S')
 
 df.to_csv('/home/lun/Desktop/Folder 2/Strategy Development/Mean Revert Portfolio/data/' + 'sp500 US Equity Intra.csv' )
+df.to_csv('/home/lun/Desktop/Folder 2/Strategy Development/Mean Revert Portfolio/data/' + 'sp500 US Equity.csv' )
 #**************************************************************************************
 #======================================================================================
 
@@ -113,49 +120,80 @@ df.to_csv('/home/lun/Desktop/Folder 2/Strategy Development/Mean Revert Portfolio
 #**************************************************************************************
 histData = HistoricalData.HistoricalData()
 
-histData.GetHistoricalData(tws, 100, contractDict['ES20250321C5865'], '5 D', '1 day')
-time.sleep(8)
-df225 = pd.DataFrame(tws.histData[100])
+path = os.getcwd() + '/config/'
+strategyName = 'VIXFutures'
+strategyName = 'VIXOptions'
 
-histData.GetHistoricalData(tws, 101, contractDict['AAPL20241115.0C230.0'], '5 D', '15 secs')
-time.sleep(8)
-df230 = pd.DataFrame(tws.histData[101])
+contractList = pd.read_excel(path + strategyName + '.xlsx', sheet_name = 'Contracts')
 
-histData.GetHistoricalData(tws, 102, contractDict['AAPL20241115.0C235.0'], '5 D', '15 secs')
-time.sleep(8)
-df235 = pd.DataFrame(tws.histData[102])
+#Create Contract
+createContract = MakeContract.MakeContract()
+contractDict = createContract.contractObjectList(contractList)
 
-histData.GetHistoricalData(tws, 103, contractDict['AAPL20241115.0C240.0'], '5 D', '15 secs')
-time.sleep(8)
-df240 = pd.DataFrame(tws.histData[103])
 
-histData.GetHistoricalData(tws, 105, contractDict['AAPL20241115.0C245.0'], '5 D', '15 secs')
-time.sleep(8)
-df245 = pd.DataFrame(tws.histData[105])
+res = {}
+endDate = pd.to_datetime('20251113 08:14:45', format="%Y%m%d %H:%M:%S")
+endDate = endDate.strftime("%Y%m%d %H:%M:%S") 
+for name, contract in contractDict.items():
+    
+    reqId = tws.getNextReqId()
+    tws.histData[reqId] = None
+    tws.histDataComplete[reqId] = Event()
 
-histData.GetHistoricalData(tws, 106, contractDict['AAPL'], '5 D', '15 secs')
-time.sleep(8)
-dfAAPL = pd.DataFrame(tws.histData[106])
+    histData.GetHistoricalData(tws, reqId, contract, "8 D", "15 secs", endDateTime = endDate)
 
-#Export to csv
-df225.to_csv('/home/lun/Desktop/Folder 2/Strategy Development/Option Distributions/data/' + 'AAPL225.csv')
-df230.to_csv('/home/lun/Desktop/Folder 2/Strategy Development/Option Distributions/data/' + 'AAPL230.csv')
-df235.to_csv('/home/lun/Desktop/Folder 2/Strategy Development/Option Distributions/data/' + 'AAPL235.csv')
-df240.to_csv('/home/lun/Desktop/Folder 2/Strategy Development/Option Distributions/data/' + 'AAPL240.csv')
-df245.to_csv('/home/lun/Desktop/Folder 2/Strategy Development/Option Distributions/data/' + 'AAPL245.csv')
-dfAAPL.to_csv('/home/lun/Desktop/Folder 2/Strategy Development/Option Distributions/data/' + 'AAPL.csv')
+    # WAIT HERE until IB signals completion
+    time.sleep(38)
+    #tws.histDataComplete[reqId].wait(timeout = 38)   
+
+    # NOW the data is definitely ready
+    data = tws.histData[reqId]
+    print(name, " done download")
+    
+    res[name] = data
+    #print(res)
+    time.sleep(10)
+
+
+# Save 
+df = pd.DataFrame()
+for name, data in res.items():
+    expiry = pd.to_datetime(name[3 : 11]).date()
+    if name[11] == 'C':
+        putCall = 'call'
+    else:
+        putCall = 'put'
+    strike = float(name[12:])
+    
+    prices = data.loc[:, ['date', 'close']]   
+    prices['date'] = pd.to_datetime(prices['date'], format = "%Y%m%d %H:%M:%S")
+    date = prices['date'].dt.date
+    time = prices['date'].dt.time
+    
+    prices['date'] = date
+    prices.insert(1, 'time', time)
+    prices.insert(2, 'expiry', expiry)
+    prices.insert(3, 'put/call', putCall)
+    prices.insert(4, 'strike', strike)
+
+    df = pd.concat([df, prices], ignore_index = True)
+# Save
+path = '/home/lun/Desktop/Folder 2/Strategy Development/Option Risk Neutral/data/VIXOption_' + str(expiry) + '_3.pkl'
+df.to_pickle(path)
+
+
+
+s = 28
+reqId = tws.getNextReqId()
+histData.GetHistoricalData(tws, 50086, contractDict['VIX20260121'], '8 D', '15 secs', endDateTime = endDate)
+time.sleep(s)
+VIXFutures = pd.DataFrame(tws.histData[50086])
+VIXFutures.to_pickle('/home/lun/Desktop/Folder 2/Strategy Development/Option Risk Neutral/data/' + 'VIX_Futures_3.csv')
+
+
+
 #**************************************************************************************
 #======================================================================================
-
-#10/10/2024 ATM Imp Vol 25.7%
-
-import matplotlib.pyplot as plt
-
-plt.plot(list(df['close']))
-
-
-
-
 
 
 
